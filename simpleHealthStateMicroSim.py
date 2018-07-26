@@ -1,15 +1,22 @@
+# This script runs a simple microsimulation of individuals with COPD using a health state transition model.
+# Health states in this iteration are defined by smoking status: Current, Former, and Dead as an absorbing state.
+# A parent object is used to define a general heatlh state and each health state is defined as a separate child object inheriting the general Health State. Transition between health states is polymorphic.
+
+# Mortality is modelled using a Cox model from Shavelle 2009
+
 from numpy.random import choice
 import math
 import numpy as np
 import time
 
+# Object for global model parameters
 class Parameters:
     cycleLength = 1/12 # monthly cycle length, units = years
     discRate = 0.015
 
     mortCOPD = np.array([0.0060, math.log(1.3), math.log(2.0), math.log(4.5), math.log(11.6), math.log(0.9), math.log(1.4), math.log(2.6), math.log(1.5)])
 
-
+# This object is used to convert probabilities and rates to a cycle length
 class Calculator:
     @classmethod
     def probToRate(cls, p, t=1):
@@ -28,7 +35,7 @@ class Calculator:
     def getDiscount(cls,dr,tElapsed):
         return 1/((1+dr)**tElapsed)
 
-
+# General Health State object
 class HealthState(Calculator, Parameters):
     totalCost = 0.0
     hsNames = np.array(["Current", "Former", "Dead"])
@@ -56,6 +63,7 @@ class HealthState(Calculator, Parameters):
         return 0
 
 
+# Current smoker health state
 class CurrentSmoker(HealthState):
     def __init__(self):
         self.tpDie = 0.005
@@ -72,6 +80,7 @@ class CurrentSmoker(HealthState):
     def processEvents(self, ag):
         ag.durationAbst = 0
 
+# Former smoker health state
 class FormerSmoker(HealthState):
     def __init__(self):
         self.tpDie = 0.2
@@ -94,7 +103,7 @@ class FormerSmoker(HealthState):
     def processEvents(self, ag):
         ag.durationAbst += HealthState.cycleLength
 
-
+# Dead health state
 class Dead(HealthState):
     def __init__(self):
         self.tpDie = 1
@@ -103,7 +112,7 @@ class Dead(HealthState):
 
         self.stateCost = 0
 
-
+# Object to store parameters at the individual level
 class Person(Parameters):
     personCount = 0
 
@@ -122,15 +131,19 @@ class Person(Parameters):
 
         Person.personCount += 1
 
+
+# Beginning of simulation
 startTime = time.time()
 
+# Create all instances of all health states
 c = CurrentSmoker()
 f = FormerSmoker()
 d = Dead()
 
 countQuit = 0
-numPersons = 1000
+numPersons = 100
 
+# loop through individuals
 for i in range(0,numPersons):
     ag = Person(c)
 
